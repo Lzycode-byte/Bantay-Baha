@@ -36,6 +36,7 @@ view - ValueListenableBuilder <-> viewmodel - ValueNotifier (app state)
 - [x] Display leaflets from the api
   - [x] Parsing
 - [x] Auto Reaload on interval
+- [ ] Refactor codebase to stack architecture
 - [ ] Telemetry Dashboard
 - [ ] Geocoding for searching places
 
