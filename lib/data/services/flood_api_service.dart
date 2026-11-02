@@ -14,26 +14,28 @@ class FloodApiService {
   final String _advisories = '/api/cron/advisories';
   final String _telemetry = '/api/telemetry';
 
-  Future<FloodRaw> fetchFloodLive() async {
+  Future<FloodRaw> fetchFloodLive({Map<String, dynamic>? queryParameters, Map<String, String>? headers}) async {
     final http.Response response = await http.get(
-      Uri.https(_baseUrl, _floodLiveApi),
+      Uri.https(_baseUrl, _floodLiveApi, queryParameters),
+      headers: headers
     );
 
     final Map<String, dynamic> json = jsonDecode(response.body);
     return FloodRaw.fromJson(json);
   }
 
-  Future<TelemetryRaw> fetchTelemetry() async {
+  Future<TelemetryRaw> fetchTelemetry({Map<String, dynamic>? queryParameters}) async {
      final http.Response response = await http.get(
-      Uri.https(_baseUrl, _telemetry),
+      Uri.https(_baseUrl, _telemetry, queryParameters),
     );
     final Map<String, dynamic> json = jsonDecode(response.body);
     return TelemetryRaw.fromJson(json);
   }
 
-  Future<AdvisoriesRaw> fetchAdvisories() async {
+  Future<AdvisoriesRaw> fetchAdvisories({Map<String, dynamic>? queryParameters, Map<String, String>? headers}) async {
        final http.Response response = await http.get(
-      Uri.https(_baseUrl, _advisories),
+      Uri.https(_baseUrl, _advisories, queryParameters),
+      headers: headers
     );
     final Map<String, dynamic> json = jsonDecode(response.body);
     return AdvisoriesRaw.fromJson(json);

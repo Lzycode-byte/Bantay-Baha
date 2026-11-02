@@ -33,7 +33,7 @@ class _HomeViewState extends State<HomeView> {
           return Center(child: CircularProgressIndicator());
         }
         return RefreshIndicator(
-          onRefresh: viewModel.init,
+          onRefresh: viewModel.refresh,
           child: ListView.builder(
             itemCount: stations.length,
             itemBuilder: (context, index) {

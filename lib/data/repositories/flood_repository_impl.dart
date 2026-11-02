@@ -17,7 +17,7 @@ class FloodRepositoryImpl implements FloodRepository {
   const FloodRepositoryImpl(this._floodApiService);
 
   @override
-  Future<Flood?> getFloodLive() async {
+  Future<Flood?> getFloodLive({Map<String, dynamic>? queryParameters, Map<String, String>? headers}) async {
     try {
       final FloodRaw floodRaw = await _floodApiService.fetchFloodLive();
       final Flood flood = floodRaw.toDomain();
@@ -29,7 +29,7 @@ class FloodRepositoryImpl implements FloodRepository {
   }
 
   @override
-  Future<Telemetry?> getTelemetry() async {
+  Future<Telemetry?> getTelemetry({Map<String, dynamic>? queryParameters}) async {
     try {
       final TelemetryRaw telemetryRaw = await _floodApiService.fetchTelemetry();
       final Telemetry telemetry = telemetryRaw.toDomain();
@@ -41,7 +41,7 @@ class FloodRepositoryImpl implements FloodRepository {
   }
 
   @override
-  Future<List<Advisory>?> getAdvisories() async {
+  Future<List<Advisory>?> getAdvisories({Map<String, dynamic>? queryParameters, Map<String, String>? headers}) async {
     try {
       final AdvisoriesRaw advisoriesRaw = await _floodApiService
           .fetchAdvisories();

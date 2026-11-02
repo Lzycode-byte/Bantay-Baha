@@ -187,7 +187,7 @@ extension AdvisoryMapper on AdvisoryRaw {
       coordinates: CoordinatesRaw.fromJson(coordinates).toDomain(),
       locationPins: locationPins
           .map((i) => LocationPinRaw.fromJson(i).toDomain())
-          .toList(),
+          .toList(growable: false),
     );
   }
 }
