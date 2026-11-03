@@ -15,7 +15,7 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: widget.child),
+      body: widget.child,
     );
   }
 }

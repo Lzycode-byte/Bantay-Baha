@@ -12,6 +12,6 @@ void setupLocator() {
     () => FloodRepositoryImpl(getIt<FloodApiService>()),
   );
   getIt.registerFactory<HomeViewModel>(
-    () => HomeViewModel(getIt<FloodRepository>()),
+    () => HomeViewModel(floodRepository: getIt<FloodRepository>()),
   );
 }
