@@ -28,7 +28,7 @@ Bantay-Baha is designed for quick situational awareness during flood events. The
 - Flutter
 - Dart
 - MapLibre GL for map rendering
-- HTTP for API requests
+- Dio for API requests
 
 ## Project structure
 
@@ -37,9 +37,8 @@ Bantay-Baha is designed for quick situational awareness during flood events. The
 ├── lib/
 │   ├── main.dart
 │   └── ui/
-│       └── views/
-│           └── home/
-│               └── home_view.dart
+│       └── home/
+│           └── home_view.dart
 ├── test/
 │   └── widget_test.dart
 ├── android/
@@ -59,7 +58,7 @@ Bantay-Baha is designed for quick situational awareness during flood events. The
 The current project follows a simple UI-first architecture for a small app:
 
 - `main.dart` starts the app and initializes MapLibre pre-warming
-- `lib/ui/views/home/home_view.dart` contains the main flood-monitoring view
+- `lib/ui/home/home_view.dart` contains the main flood-monitoring overview
 - the screen is responsible for:
   - fetching station data
   - parsing the API response
@@ -121,8 +120,8 @@ environment:
 - [x] Auto-refresh on interval
 - [x] Show map-based station markers
 - [x] Show station detail sheet
-- [ ] Refactor into a cleaner architecture
-- [ ] Add a telemetry dashboard
+- [x] Refactor into a cleaner architecture
+- [x] Add a telemetry dashboard
 - [ ] Add geocoding/search for places
 - [ ] Add production-grade tests for the monitoring flow
 
