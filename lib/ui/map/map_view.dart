@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:bantay_baha/domain/models/station.dart';
 import 'package:bantay_baha/ui/home/home_viewmodel.dart';
+import 'package:bantay_baha/ui/map/map_route_args.dart';
 import 'package:bantay_baha/ui/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -46,7 +47,9 @@ class MapHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class MapView extends StatefulWidget {
-  const MapView({super.key});
+  const MapView({super.key, this.selectedStationId});
+
+  final String? selectedStationId;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -55,6 +58,8 @@ class MapView extends StatefulWidget {
 class _MapViewState extends State<MapView> {
   static const String _stationSourceId = 'flood-stations-source';
   static const String _pulseLayerId = 'flood-stations-pulse';
+  static const String _selectedPulseLayerId = 'flood-stations-selected-pulse';
+  static const String _selectedLayerId = 'flood-stations-selected';
   static const String _markerLayerId = 'flood-stations-markers';
 
   MapLibreMapController? _controller;
@@ -82,111 +87,125 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<HomeViewModel>(
-      builder: (context, model, _) {
-        final stations = model.stations;
-        _scheduleAnnotationSync(stations);
-        return CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              title: const Text('Station map'),
-              leading: IconButton(
-                tooltip: 'Back to overview',
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => context.go('/'),
-              ),
-              actions: [
-                IconButton(
-                  tooltip: 'Refresh stations',
-                  onPressed: model.isLoading ? null : model.refresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            SliverPersistentHeader(
-              delegate: MapHeaderDelegate(
-                minHeight: 150,
-                maxHeight: MediaQuery.sizeOf(context).height * 0.8,
-                child: Stack(
-                  children: [
-                    MapLibreMap(
-                      styleString: MapLibreStyles.openfreemapLiberty,
-                      initialCameraPosition: const CameraPosition(
-                        target: LatLng(13.7565, 121.0583),
-                        zoom: 7.4,
-                      ),
-                      compassEnabled: true,
-                      onMapCreated: (controller) {
-                        _controller = controller;
-                      },
-                      onStyleLoadedCallback: () {
-                        _styleReady = true;
-                        _initializeStationLayers();
-                      },
-                      scrollGesturesEnabled: true,
-                      zoomGesturesEnabled: true,
-                      rotateGesturesEnabled: true,
-                      tiltGesturesEnabled: true,
-                      doubleClickZoomEnabled: true,
-                      gestureRecognizers:
-                          <Factory<OneSequenceGestureRecognizer>>{
-                            Factory<OneSequenceGestureRecognizer>(
-                              () => EagerGestureRecognizer(),
-                            ),
-                          },
-                    ),
-                    if (model.isLoading && stations.isEmpty)
-                      const Align(
-                        alignment: Alignment.topCenter,
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
-                    if (model.hasFloodError && stations.isEmpty)
-                      _MapMessage(
-                        icon: Icons.cloud_off_outlined,
-                        title: 'Station data unavailable',
-                        message:
-                            model.floodError ??
-                            'Check your connection and retry.',
-                        action: 'Try again',
-                        onAction: model.refresh,
-                      ),
-                    if (!model.isLoading &&
-                        !model.hasFloodError &&
-                        stations.isEmpty)
-                      const _MapMessage(
-                        icon: Icons.location_off_outlined,
-                        title: 'No stations available',
-                        message: 'There are no monitoring stations to display right now.',
-                      ),
-                    if (stations.isNotEmpty)
-                      Positioned(
-                        top: 14,
-                        left: 14,
-                        child: _MapLegend(count: stations.length),
-                      ),
-                    if (_selectedStation case final station?)
-                      Positioned(
-                        left: 14,
-                        right: 14,
-                        bottom: 18,
-                        child: _SelectedStationCard(
-                          station: station,
-                          onClose: () =>
-                              setState(() => _selectedStation = null),
-                          onDetails: () => _showStationDetails(station),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+    final model = context.watch<HomeViewModel>();
+    final stations = model.stations;
+    _scheduleAnnotationSync(stations);
+    _selectRequestedStation(stations);
+
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          title: const Text('Station map'),
+          leading: IconButton(
+            tooltip: 'Back to overview',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => context.go('/'),
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh stations',
+              onPressed: model.isLoading ? null : model.refresh,
+              icon: const Icon(Icons.refresh_rounded),
             ),
           ],
-        );
-      },
+        ),
+        SliverPersistentHeader(
+          delegate: MapHeaderDelegate(
+            minHeight: 150,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+            child: Stack(
+              children: [
+                MapLibreMap(
+                  styleString: MapLibreStyles.openfreemapLiberty,
+                  initialCameraPosition: const CameraPosition(
+                    target: LatLng(13.7565, 121.0583),
+                    zoom: 7.4,
+                  ),
+                  compassEnabled: true,
+                  onMapCreated: (controller) {
+                    _controller = controller;
+                  },
+                  onStyleLoadedCallback: () {
+                    _styleReady = true;
+                    _initializeStationLayers();
+                  },
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
+                  rotateGesturesEnabled: true,
+                  tiltGesturesEnabled: true,
+                  doubleClickZoomEnabled: true,
+                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                    Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer(),
+                    ),
+                  },
+                ),
+                if (model.isLoading && stations.isEmpty)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+                if (model.hasFloodError && stations.isEmpty)
+                  _MapMessage(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Station data unavailable',
+                    message:
+                        model.floodError ?? 'Check your connection and retry.',
+                    action: 'Try again',
+                    onAction: model.refresh,
+                  ),
+                if (!model.isLoading &&
+                    !model.hasFloodError &&
+                    stations.isEmpty)
+                  const _MapMessage(
+                    icon: Icons.location_off_outlined,
+                    title: 'No stations available',
+                    message: 'There are no monitoring stations to display right now.',
+                  ),
+                if (stations.isNotEmpty)
+                  Positioned(
+                    top: 14,
+                    left: 14,
+                    child: _MapLegend(count: stations.length),
+                  ),
+                if (_selectedStation case final station?)
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 18,
+                    child: _SelectedStationCard(
+                      station: station,
+                      onClose: () => setState(() => _selectedStation = null),
+                      onDetails: () => _showStationDetails(station),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  void _selectStation(String stationId) {
+  void _selectRequestedStation(List<Station> stations) {
+    final id = widget.selectedStationId;
+    if (id == null ||
+        _selectedStation?.stationId == id ||
+        _controller == null ||
+        !_layersReady) {
+      return;
+    }
+    for (final station in stations) {
+      if (station.stationId == id) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _selectStation(id, showDetails: false);
+        });
+        return;
+      }
+    }
+  }
+
+  void _selectStation(String stationId, {bool showDetails = true}) {
     Station? station;
     for (final item in context.read<HomeViewModel>().stations) {
       if (item.stationId == stationId) {
@@ -197,7 +216,15 @@ class _MapViewState extends State<MapView> {
     final selectedStation = station;
     if (selectedStation == null || !mounted) return;
     setState(() => _selectedStation = selectedStation);
-    _showStationDetails(selectedStation);
+    if (widget.selectedStationId == stationId) _hasFramedStations = true;
+    _controller?.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(selectedStation.latitude, selectedStation.longitude),
+        12,
+      ),
+      duration: const Duration(milliseconds: 500),
+    );
+    if (showDetails) _showStationDetails(selectedStation);
   }
 
   void _scheduleAnnotationSync(List<Station> stations) {
@@ -212,7 +239,8 @@ class _MapViewState extends State<MapView> {
           (station) =>
               '${station.stationId}:${station.latitude}:${station.longitude}:${station.riskLevel}',
         )
-        .join('|');
+        .join('|') +
+        '|selected:${_selectedStation?.stationId ?? ''}';
     if (signature == _stationSignature) return;
     _stationSignature = signature;
     _annotationSyncPending = true;
@@ -280,6 +308,31 @@ class _MapViewState extends State<MapView> {
       );
       await controller.addCircleLayer(
         _stationSourceId,
+        _selectedPulseLayerId,
+        const CircleLayerProperties(
+          circleRadius: 18,
+          circleColor: '#155EEF',
+          circleOpacity: .25,
+          circleStrokeWidth: 0,
+        ),
+        filter: ['==', ['get', 'isSelected'], true],
+        enableInteraction: false,
+      );
+      await controller.addCircleLayer(
+        _stationSourceId,
+        _selectedLayerId,
+        const CircleLayerProperties(
+          circleRadius: 13,
+          circleColor: '#FFFFFF',
+          circleOpacity: 0,
+          circleStrokeWidth: 3.5,
+          circleStrokeColor: '#155EEF',
+        ),
+        filter: ['==', ['get', 'isSelected'], true],
+        enableInteraction: false,
+      );
+      await controller.addCircleLayer(
+        _stationSourceId,
         _markerLayerId,
         const CircleLayerProperties(
           circleRadius: 8,
@@ -293,6 +346,7 @@ class _MapViewState extends State<MapView> {
       _layersReady = true;
       if (!mounted) return;
       _scheduleAnnotationSync(context.read<HomeViewModel>().stations);
+      _selectRequestedStation(context.read<HomeViewModel>().stations);
     } catch (error) {
       debugPrint('Unable to initialize station map layers: $error');
     }
@@ -308,6 +362,7 @@ class _MapViewState extends State<MapView> {
             'properties': {
               'stationId': station.stationId,
               'markerColor': _colorHex(_riskColor(station.riskLevel)),
+              'isSelected': station.stationId == _selectedStation?.stationId,
             },
             'geometry': {
               'type': 'Point',
@@ -338,6 +393,13 @@ class _MapViewState extends State<MapView> {
           CircleLayerProperties(
             circleRadius: 14 + 10 * _pulseProgress,
             circleOpacity: .3 * (1 - _pulseProgress),
+          ),
+        );
+        await controller.setLayerProperties(
+          _selectedPulseLayerId,
+          CircleLayerProperties(
+            circleRadius: 18 + 10 * _pulseProgress,
+            circleOpacity: .28 * (1 - _pulseProgress),
           ),
         );
       } catch (error) {
@@ -493,10 +555,17 @@ String _dateLabel(DateTime date) {
 
 Color _riskColor(String level) {
   final risk = level.toUpperCase();
-  if (risk.contains('CRITICAL') || risk.contains('ALARM')) {
+  if (risk.contains('CRITICAL') ||
+      risk.contains('ALARM') ||
+      risk.contains('SEVERE') ||
+      risk.contains('HIGH')) {
     return AppTheme.danger;
   }
-  if (risk.contains('WARNING')) return AppTheme.warningAmber;
+  if (risk.contains('WARNING') ||
+      risk.contains('ALERT') ||
+      risk.contains('WATCH')) {
+    return AppTheme.warningAmber;
+  }
   if (risk.contains('NORMAL')) return AppTheme.success;
   return AppTheme.brandBlue;
 }
@@ -508,21 +577,40 @@ class _MapLegend extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     elevation: 2,
     color: Theme.of(context).colorScheme.surface,
-    borderRadius: BorderRadius.circular(14),
+    borderRadius: BorderRadius.circular(6),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const _RiskDot(color: AppTheme.brandBlue, size: 9),
-          const SizedBox(width: 8),
           Text(
             '$count monitoring stations',
             style: Theme.of(context).textTheme.labelLarge,
           ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _legendItem('High', AppTheme.danger),
+              const SizedBox(width: 10),
+              _legendItem('Watch', AppTheme.warningAmber),
+              const SizedBox(width: 10),
+              _legendItem('Normal', AppTheme.success),
+            ],
+          ),
         ],
       ),
     ),
+  );
+
+  Widget _legendItem(String label, Color color) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _RiskDot(color: color, size: 8),
+      const SizedBox(width: 4),
+      Text(label),
+    ],
   );
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:bantay_baha/domain/models/flood.dart';
+import 'package:bantay_baha/domain/models/advisory.dart';
 import 'package:bantay_baha/domain/models/metrics.dart';
 import 'package:bantay_baha/domain/models/station.dart';
 import 'package:bantay_baha/domain/repositories/flood_repository.dart';
@@ -13,12 +14,18 @@ class HomeViewModel extends ChangeNotifier {
   HomeViewModel({required this._floodRepository});
 
   Flood? _flood;
+  List<Advisory> _advisories = const [];
+  bool _isLoadingAdvisories = false;
+  String? _advisoriesError;
   Metrics? _metrics;
   final List<Station> _stations = [];
   late final UnmodifiableListView<Station> _stationsView = UnmodifiableListView(
     _stations,
   );
   Flood? get flood => _flood;
+  List<Advisory> get advisories => List.unmodifiable(_advisories);
+  bool get isLoadingAdvisories => _isLoadingAdvisories;
+  String? get advisoriesError => _advisoriesError;
   Metrics? get metrics => _metrics;
   UnmodifiableListView<Station> get stations => _stationsView;
 
@@ -77,6 +84,25 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> refresh() async {
     await init();
+  }
+
+  Future<void> loadAdvisories({bool force = false}) async {
+    if (_isLoadingAdvisories) return;
+    if (_advisories.isNotEmpty && !force) return;
+    _isLoadingAdvisories = true;
+    _advisoriesError = null;
+    notifyListeners();
+    try {
+      final result = await _floodRepository.getAdvisories();
+      if (result == null) throw Exception('Advisories are unavailable.');
+      _advisories = result;
+    } catch (error) {
+      debugPrint('Advisory loading error: $error');
+      _advisoriesError = 'Unable to load advisories.';
+    } finally {
+      _isLoadingAdvisories = false;
+      notifyListeners();
+    }
   }
 
   @override
