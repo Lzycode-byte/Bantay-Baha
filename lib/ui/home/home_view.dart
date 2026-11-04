@@ -18,7 +18,7 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  bool _attentionOnly = false;
+  String _stationFilter = 'All';
 
   @override
   Widget build(BuildContext context) {
@@ -44,17 +44,32 @@ class _HomeViewState extends State<HomeView> {
         final highRisk = model.metrics?.highRiskStationsCount ?? attentionCount;
         final peakLevel = model.metrics?.peakWaterLevel ?? 0.0;
         final totalStations = model.metrics?.totalStations ?? stations.length;
+        final calculatedAt = model.flood?.calculatedAt;
+        final readingsAreStale = model.isUsingCachedFloodData ||
+            (calculatedAt != null &&
+                DateTime.now().difference(calculatedAt) >
+                    const Duration(minutes: 15));
 
-        final showFilter = attentionCount > 0;
-        final filterOn = _attentionOnly && showFilter;
-        final visible = filterOn
-            ? sorted.where((s) => !_isNormal(s)).toList()
-            : sorted;
+        final watchedCount = sorted
+            .where((station) => model.isStationWatched(station.stationId))
+            .length;
+        final visible = sorted.where((station) {
+          switch (_stationFilter) {
+            case 'Watched':
+              return model.isStationWatched(station.stationId);
+            case 'Needs attention':
+              return !_isNormal(station);
+            default:
+              return true;
+          }
+        }).toList();
 
         final hasData = stations.isNotEmpty;
         final statusColor = model.hasFloodError
             ? scheme.onSurfaceVariant
-            : (highRisk > 0 ? AppTheme.warningAmber : AppTheme.success);
+            : (readingsAreStale || highRisk > 0
+                  ? AppTheme.warningAmber
+                  : AppTheme.success);
 
         final headline = !hasData
             ? 'Flood overview'
@@ -152,6 +167,16 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
 
+              if (model.isUsingCachedFloodData)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(_hPad, 8, _hPad, 0),
+                    child: _OfflineSnapshotBanner(
+                      savedAt: model.floodCacheSavedAt,
+                    ),
+                  ),
+                ),
+
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(_hPad, 24, _hPad, 24),
@@ -173,7 +198,11 @@ class _HomeViewState extends State<HomeView> {
                             child: Text(
                               model.flood == null
                                   ? 'Live monitoring'
-                                  : _updatedLabel(model.flood!.calculatedAt),
+                                  : model.isUsingCachedFloodData
+                                  ? 'Offline snapshot · ${_savedAtLabel(model.floodCacheSavedAt)}'
+                                  : readingsAreStale
+                                  ? 'Data may be stale · ${_updatedLabel(calculatedAt!)}'
+                                  : _updatedLabel(calculatedAt!),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -247,11 +276,21 @@ class _HomeViewState extends State<HomeView> {
                           ),
                         ],
                       ),
-                      if (showFilter) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap the bell on a station to watch it for risk alerts.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (stations.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         _FilterBar(
-                          attentionOnly: filterOn,
-                          onChanged: (v) => setState(() => _attentionOnly = v),
+                          selected: _stationFilter,
+                          hasWatched: watchedCount > 0,
+                          hasAttention: attentionCount > 0,
+                          onChanged: (filter) =>
+                              setState(() => _stationFilter = filter),
                         ),
                       ],
                     ],
@@ -272,7 +311,9 @@ class _HomeViewState extends State<HomeView> {
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(32),
-                    child: Center(child: Text('No stations match this filter')),
+                    child: Center(
+                      child: Text('No stations match this filter'),
+                    ),
                   ),
                 )
               else
@@ -423,6 +464,10 @@ String _updatedLabel(DateTime date) {
   final m = l.minute.toString().padLeft(2, '0');
   return 'Updated ${months[l.month - 1]} ${l.day}, $h:$m';
 }
+
+String _savedAtLabel(DateTime? date) => date == null
+    ? 'save time unavailable'
+    : _updatedLabel(date).replaceFirst('Updated ', 'saved ');
 
 String _sentenceCase(String s) =>
     s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
@@ -603,20 +648,27 @@ class _Stat extends StatelessWidget {
 }
 
 class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.attentionOnly, required this.onChanged});
+  const _FilterBar({
+    required this.selected,
+    required this.hasWatched,
+    required this.hasAttention,
+    required this.onChanged,
+  });
 
-  final bool attentionOnly;
-  final ValueChanged<bool> onChanged;
+  final String selected;
+  final bool hasWatched;
+  final bool hasAttention;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    Widget chip(String label, bool selected, bool value) => ChoiceChip(
+    Widget chip(String label, bool enabled) => ChoiceChip(
       label: Text(label),
-      selected: selected,
+      selected: selected == label,
       showCheckmark: false,
       shape: const StadiumBorder(),
       visualDensity: VisualDensity.compact,
-      onSelected: (_) => onChanged(value),
+      onSelected: enabled ? (_) => onChanged(label) : null,
     );
 
     return Material(
@@ -624,8 +676,9 @@ class _FilterBar extends StatelessWidget {
       child: Wrap(
         spacing: 8,
         children: [
-          chip('All', !attentionOnly, false),
-          chip('Needs attention', attentionOnly, true),
+          chip('All', true),
+          chip('Watched', hasWatched),
+          chip('Needs attention', hasAttention),
         ],
       ),
     );
@@ -676,6 +729,21 @@ class _StationCard extends StatelessWidget {
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: model.isStationWatched(station.stationId)
+                        ? 'Stop watching this station'
+                        : 'Watch this station for alerts',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => model.toggleStationWatch(station.stationId),
+                    icon: Icon(
+                      model.isStationWatched(station.stationId)
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_none_rounded,
+                      color: model.isStationWatched(station.stationId)
+                          ? AppTheme.brandBlue
+                          : scheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -855,6 +923,38 @@ class _ErrorBanner extends StatelessWidget {
             ),
           ),
           TextButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineSnapshotBanner extends StatelessWidget {
+  const _OfflineSnapshotBanner({required this.savedAt});
+
+  final DateTime? savedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.warningAmber.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: AppTheme.warningAmber),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You are offline. Showing saved readings (${_savedAtLabel(savedAt)}); conditions may have changed.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
         ],
       ),
     );

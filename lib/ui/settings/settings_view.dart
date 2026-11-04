@@ -17,6 +17,7 @@ class _SettingsViewState extends State<SettingsView> {
       getIt<LocalNotificationService>();
   bool _enabled = false;
   bool _loading = true;
+  int _watchThreshold = 2;
 
   @override
   void initState() {
@@ -26,9 +27,11 @@ class _SettingsViewState extends State<SettingsView> {
 
   Future<void> _loadSettings() async {
     final enabled = await _notifications.notificationsEnabled();
+    final threshold = await _notifications.watchAlertThreshold();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
+      _watchThreshold = threshold;
       _loading = false;
     });
   }
@@ -88,6 +91,26 @@ class _SettingsViewState extends State<SettingsView> {
             subtitle: const Text('Early warnings and new advisories'),
             value: _enabled,
             onChanged: _loading ? null : _setEnabled,
+          ),
+          ListTile(
+            leading: const Icon(Icons.warning_amber_rounded),
+            title: const Text('Watched station alert level'),
+            subtitle: const Text('Notify when a watched station reaches this risk level'),
+            trailing: DropdownButton<int>(
+              value: _watchThreshold,
+              onChanged: _loading
+                  ? null
+                  : (value) async {
+                      if (value == null) return;
+                      await _notifications.setWatchAlertThreshold(value);
+                      if (mounted) setState(() => _watchThreshold = value);
+                    },
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('Warning')),
+                DropdownMenuItem(value: 2, child: Text('Alarm')),
+                DropdownMenuItem(value: 3, child: Text('Critical')),
+              ],
+            ),
           ),
         ],
       ),

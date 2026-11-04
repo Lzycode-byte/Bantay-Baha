@@ -73,6 +73,34 @@ class _AdvisoriesViewState extends State<AdvisoriesView> {
                       )
                     : null,
               ),
+              if (model.isUsingCachedAdvisories)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningAmber.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_outlined,
+                            color: AppTheme.warningAmber,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Offline snapshot · saved ${_savedAge(model.advisoriesCacheSavedAt)}. Reports may have changed.',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
                 sliver: SliverToBoxAdapter(
@@ -175,6 +203,15 @@ class _AdvisoriesViewState extends State<AdvisoriesView> {
       },
     );
   }
+}
+
+String _savedAge(DateTime? date) {
+  if (date == null) return 'time unavailable';
+  final age = DateTime.now().difference(date);
+  if (age.inMinutes < 1) return 'just now';
+  if (age.inMinutes < 60) return '${age.inMinutes} min ago';
+  if (age.inHours < 24) return '${age.inHours} h ago';
+  return '${age.inDays} d ago';
 }
 
 bool _isUrgent(Advisory advisory) {
