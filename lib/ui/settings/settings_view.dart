@@ -1,0 +1,96 @@
+import 'package:bantay_baha/core/locator.dart';
+import 'package:bantay_baha/data/services/local_notification_service.dart';
+import 'package:bantay_baha/ui/theme/app_theme_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+class SettingsView extends StatefulWidget {
+  const SettingsView({super.key});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  final LocalNotificationService _notifications =
+      getIt<LocalNotificationService>();
+  bool _enabled = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final enabled = await _notifications.notificationsEnabled();
+    if (!mounted) return;
+    setState(() {
+      _enabled = enabled;
+      _loading = false;
+    });
+  }
+
+  Future<void> _setEnabled(bool enabled) async {
+    if (enabled) {
+      try {
+        final granted = await _notifications.enableNotifications();
+        if (!mounted) return;
+        setState(() => _enabled = granted);
+        if (!granted) _showPermissionHint();
+      } on PlatformException {
+        if (mounted) _showPermissionHint();
+      }
+      return;
+    }
+
+    await _notifications.disableNotifications();
+    if (mounted) setState(() => _enabled = false);
+  }
+
+  void _showPermissionHint() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Allow notifications in your device settings.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeController = context.watch<AppThemeController>();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Appearance'),
+            subtitle: const Text('Choose your app theme'),
+            trailing: DropdownButton<ThemeMode>(
+              value: themeController.themeMode,
+              onChanged: (mode) {
+                if (mode != null) themeController.setThemeMode(mode);
+              },
+              items: const [
+                DropdownMenuItem(
+                  value: ThemeMode.system,
+                  child: Text('System'),
+                ),
+                DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+                DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+              ],
+            ),
+          ),
+          SwitchListTile.adaptive(
+            secondary: const Icon(Icons.notifications_outlined),
+            title: const Text('Flood notifications'),
+            subtitle: const Text('Early warnings and new advisories'),
+            value: _enabled,
+            onChanged: _loading ? null : _setEnabled,
+          ),
+        ],
+      ),
+    );
+  }
+}

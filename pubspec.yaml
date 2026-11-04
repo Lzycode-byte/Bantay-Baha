@@ -43,6 +43,9 @@ dependencies:
   get_it: ^9.3.0
   connectivity_plus: ^7.3.2
   hive: ^2.2.3
+  flutter_local_notifications: ^22.3.3
+  shared_preferences: ^2.5.3
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

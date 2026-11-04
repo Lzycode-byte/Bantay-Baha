@@ -42,9 +42,11 @@ class _AdvisoriesViewState extends State<AdvisoriesView> {
         }).toList()..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
         final urgentCount = model.advisories.where(_isUrgent).length;
 
-        return RefreshIndicator(
-          onRefresh: () => model.loadAdvisories(force: true),
-          child: CustomScrollView(
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: RefreshIndicator(
+            onRefresh: () => model.loadAdvisories(force: true),
+            child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverAppBar(
@@ -167,6 +169,7 @@ class _AdvisoriesViewState extends State<AdvisoriesView> {
                   ),
                 ),
             ],
+            ),
           ),
         );
       },

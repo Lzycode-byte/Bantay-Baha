@@ -3,8 +3,10 @@ import 'package:bantay_baha/ui/home/home_viewmodel.dart';
 import 'package:bantay_baha/ui/map/map_route_args.dart';
 import 'package:bantay_baha/ui/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const double _hPad = 20;
 
@@ -68,9 +70,11 @@ class _HomeViewState extends State<HomeView> {
             ? 'Peak water level is ${peakLevel.toStringAsFixed(1)} m'
             : 'Water levels are normal across the network';
 
-        return RefreshIndicator(
-          onRefresh: model.refresh,
-          child: CustomScrollView(
+        return Scaffold(
+          backgroundColor: bg,
+          body: RefreshIndicator(
+            onRefresh: model.refresh,
+            child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverAppBar(
@@ -119,6 +123,11 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     tooltip: 'Open station map',
                     icon: const Icon(Icons.map_outlined),
+                  ),
+                  IconButton(
+                    onPressed: () => context.go('/settings'),
+                    tooltip: 'Settings',
+                    icon: const Icon(Icons.settings_outlined),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -192,6 +201,13 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ],
                   ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(_hPad, 0, _hPad, 20),
+                  child: _EmergencyHelpCard(),
                 ),
               ),
 
@@ -276,9 +292,107 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
             ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _EmergencyHelpCard extends StatelessWidget {
+  const _EmergencyHelpCard();
+
+  Future<void> _callEmergencyServices(BuildContext context) async {
+    var launched = false;
+    try {
+      launched = await launchUrl(Uri(scheme: 'tel', path: '911'));
+    } on PlatformException catch (error) {
+      debugPrint('Unable to open the phone app: ${error.message}');
+    } on MissingPluginException catch (error) {
+      debugPrint('Phone link plugin is unavailable: $error');
+    } catch (error) {
+      debugPrint('Unable to start emergency call: $error');
+    }
+
+    if (!launched) {
+      launched = await _openNativeDialer();
+    }
+
+    if (!launched && context.mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.phone_disabled_outlined),
+          title: const Text('Unable to open the phone app'),
+          content: const Text('Please call 911 directly for emergency help.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<bool> _openNativeDialer() async {
+    try {
+      return await const MethodChannel('bantay_baha/phone')
+              .invokeMethod<bool>('dial911') ??
+          false;
+    } on PlatformException catch (error) {
+      debugPrint('Unable to start native dialer: ${error.message}');
+      return false;
+    } on MissingPluginException catch (error) {
+      debugPrint('Native dialer channel is unavailable: $error');
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppTheme.danger.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: () => _callEmergencyServices(context),
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.emergency_rounded, color: AppTheme.danger),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Need emergency help?',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'National emergency hotline',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => _callEmergencyServices(context),
+                child: const Text('Call 911'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
