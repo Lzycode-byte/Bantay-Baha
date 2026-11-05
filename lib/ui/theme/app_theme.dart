@@ -42,7 +42,9 @@ class AppTheme {
     colorScheme: ColorScheme.fromSeed(
       seedColor: brandBlue,
       brightness: Brightness.dark,
+      surface: const Color(0xFF101828),
     ),
+    scaffoldBackgroundColor: const Color(0xFF0B1220),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF101828),
       foregroundColor: Colors.white,
@@ -50,8 +52,13 @@ class AppTheme {
       scrolledUnderElevation: 0,
     ),
     cardTheme: CardThemeData(
+      color: const Color(0xFF101828),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    ),
+    textTheme: Typography.material2021().white.apply(
+      bodyColor: const Color(0xFFE4E7EC),
+      displayColor: Colors.white,
     ),
   );
 }
